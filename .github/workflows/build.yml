@@ -11,4 +11,55 @@ jobs:
         run: |
           # Create a minimal project.pbxproj that xcodebuild can use
           mkdir -p YTforTV.xcodeproj
-          cat > YTforTV.xcodeproj/project.pbxproj <
+          cat > YTforTV.xcodeproj/project.pbxproj << 'PBXPROJ'
+          // Minimal pbxproj; xcodebuild will auto-discover the Swift file
+          {
+            archiveVersion = 1;
+            objectVersion = 56;
+            rootObject = 00000000000000000000000001;
+            objects = {};
+            classes = {};
+          }
+          PBXPROJ
+
+      - name: Build IPA
+        run: |
+          xcodebuild \
+            -project YTforTV.xcodeproj \
+            -scheme YTforTV_Playgrounds \
+            -configuration Release \
+            -destination generic/platform=iOS \
+            -derivedDataPath .build \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Find and package app
+        run: |
+          # Search for the built .app
+          APP=$(find .build -name "*.app" -type d | head -1)
+          if [ -z "$APP" ]; then
+            echo "Error: No .app found"
+            find .build -type d -name "*.app" || echo "No .app directories"
+            exit 1
+          fi
+          echo "Found app: $APP"
+
+          # Update Info.plist with display name
+          /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string YT\ for\ TV" "$APP/Info.plist" 2>/dev/null || \
+          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName YT\ for\ TV" "$APP/Info.plist"
+
+          # Add icon if present
+          if [ -f "assets/icon.png" ]; then
+            cp assets/icon.png "$APP/AppIcon.png"
+          fi
+
+          # Create IPA
+          mkdir -p Payload
+          cp -r "$APP" Payload/
+          zip -r YTforTV.ipa Payload
+          ls -lh YTforTV.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: YTforTV
+          path: YTforTV.ipa
