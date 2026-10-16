@@ -1,40 +1,23 @@
-name: Build IPA with name and icon
-on: workflow_dispatch
-
-env:
-  APP_DISPLAY_NAME: "YT for TV"
-
-jobs:
-  build:
-    runs-on: macos-15
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build for iOS
+      - name: Build and create IPA
         run: |
-          swift build \
-            -c release \
-            --destination 'generic/platform=iOS' \
-            --product YTforTV_Playgrounds
-
-      - name: Locate and prepare app bundle
-        run: |
-          # Find the built executable
-          BUILT_PRODUCT=$(find .build -name "YTforTV_Playgrounds" -type f -executable 2>/dev/null | head -1)
-          if [ -z "$BUILT_PRODUCT" ]; then
-            echo "Error: Could not find built executable"
-            ls -la .build/
-            exit 1
-          fi
-          echo "Found built product: $BUILT_PRODUCT"
-
-          # Create app bundle manually
+          # Build using Swift Package Manager to iOS SDK
+          IPHONE_SDK=$(xcrun --sdk iphoneos --show-sdk-path)
+          
+          # Compile the Swift file directly
+          swiftc \
+            -target arm64-apple-ios17.0 \
+            -sdk "$IPHONE_SDK" \
+            -parse-as-library \
+            Sources/YTforTV_Playgrounds/YTforTV_Playgrounds.swift \
+            -o YTforTV_Playgrounds.bin
+          
+          # Create app bundle
           APP_BUNDLE="YTforTV_Playgrounds.app"
           rm -rf "$APP_BUNDLE"
           mkdir -p "$APP_BUNDLE"
-          cp "$BUILT_PRODUCT" "$APP_BUNDLE/"
-
-          # Create minimal Info.plist
+          cp YTforTV_Playgrounds.bin "$APP_BUNDLE/YTforTV_Playgrounds"
+          
+          # Create Info.plist
           cat > "$APP_BUNDLE/Info.plist" << 'PLIST'
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -50,8 +33,13 @@ jobs:
             <string>1</string>
             <key>CFBundleShortVersionString</key>
             <string>1.0</string>
-            <key>NSRequiresIPhoneOSSDK</key>
-            <true/>
+            <key>MinimumOSVersion</key>
+            <string>17.0</string>
+            <key>UIDeviceFamily</key>
+            <array>
+              <integer>1</integer>
+              <integer>2</integer>
+            </array>
             <key>UISupportedInterfaceOrientations</key>
             <array>
               <string>UIInterfaceOrientationPortrait</string>
@@ -68,29 +56,15 @@ jobs:
           </dict>
           </plist>
           PLIST
-
-      - name: Add icon to app bundle
-        run: |
-          APP_BUNDLE="YTforTV_Playgrounds.app"
+          
+          # Add icon if present
           if [ -f "assets/icon.png" ]; then
-            # Create AppIcon sizes
-            for px in 60 120 180; do
-              sips -z "$px" "$px" assets/icon.png --out "$APP_BUNDLE/AppIcon${px}.png" 2>/dev/null || true
-            done
-            echo "Icons added to bundle"
-          else
-            echo "Warning: assets/icon.png not found, skipping icons"
+            sips -z 120 120 assets/icon.png --out "$APP_BUNDLE/AppIcon120.png" 2>/dev/null || true
+            sips -z 180 180 assets/icon.png --out "$APP_BUNDLE/AppIcon180.png" 2>/dev/null || true
           fi
-
-      - name: Package IPA
-        run: |
-          APP_BUNDLE="YTforTV_Playgrounds.app"
+          
+          # Package IPA
           mkdir -p Payload
           cp -r "$APP_BUNDLE" Payload/
           zip -r YTforTV.ipa Payload
           ls -lh YTforTV.ipa
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: YTforTV
-          path: YTforTV.ipa
