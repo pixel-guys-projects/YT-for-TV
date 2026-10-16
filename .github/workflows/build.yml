@@ -7,7 +7,7 @@ env:
 
 jobs:
   build:
-    runs-on: macos-26   # needs Xcode 26 for iPadOS 26 APIs; check GitHub's runner list
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
 
