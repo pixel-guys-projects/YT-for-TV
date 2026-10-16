@@ -1,70 +1,14 @@
-      - name: Build and create IPA
+name: Build IPA with name and icon
+on: workflow_dispatch
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create minimal Xcode project structure
         run: |
-          # Build using Swift Package Manager to iOS SDK
-          IPHONE_SDK=$(xcrun --sdk iphoneos --show-sdk-path)
-          
-          # Compile the Swift file directly
-          swiftc \
-            -target arm64-apple-ios17.0 \
-            -sdk "$IPHONE_SDK" \
-            -parse-as-library \
-            Sources/YTforTV_Playgrounds/YTforTV_Playgrounds.swift \
-            -o YTforTV_Playgrounds.bin
-          
-          # Create app bundle
-          APP_BUNDLE="YTforTV_Playgrounds.app"
-          rm -rf "$APP_BUNDLE"
-          mkdir -p "$APP_BUNDLE"
-          cp YTforTV_Playgrounds.bin "$APP_BUNDLE/YTforTV_Playgrounds"
-          
-          # Create Info.plist
-          cat > "$APP_BUNDLE/Info.plist" << 'PLIST'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>CFBundleExecutable</key>
-            <string>YTforTV_Playgrounds</string>
-            <key>CFBundleIdentifier</key>
-            <string>com.peder.YTforTV</string>
-            <key>CFBundleDisplayName</key>
-            <string>YT for TV</string>
-            <key>CFBundleVersion</key>
-            <string>1</string>
-            <key>CFBundleShortVersionString</key>
-            <string>1.0</string>
-            <key>MinimumOSVersion</key>
-            <string>17.0</string>
-            <key>UIDeviceFamily</key>
-            <array>
-              <integer>1</integer>
-              <integer>2</integer>
-            </array>
-            <key>UISupportedInterfaceOrientations</key>
-            <array>
-              <string>UIInterfaceOrientationPortrait</string>
-              <string>UIInterfaceOrientationLandscapeLeft</string>
-              <string>UIInterfaceOrientationLandscapeRight</string>
-            </array>
-            <key>UISupportedInterfaceOrientations~ipad</key>
-            <array>
-              <string>UIInterfaceOrientationPortrait</string>
-              <string>UIInterfaceOrientationPortraitUpsideDown</string>
-              <string>UIInterfaceOrientationLandscapeLeft</string>
-              <string>UIInterfaceOrientationLandscapeRight</string>
-            </array>
-          </dict>
-          </plist>
-          PLIST
-          
-          # Add icon if present
-          if [ -f "assets/icon.png" ]; then
-            sips -z 120 120 assets/icon.png --out "$APP_BUNDLE/AppIcon120.png" 2>/dev/null || true
-            sips -z 180 180 assets/icon.png --out "$APP_BUNDLE/AppIcon180.png" 2>/dev/null || true
-          fi
-          
-          # Package IPA
-          mkdir -p Payload
-          cp -r "$APP_BUNDLE" Payload/
-          zip -r YTforTV.ipa Payload
-          ls -lh YTforTV.ipa
+          # Create a minimal project.pbxproj that xcodebuild can use
+          mkdir -p YTforTV.xcodeproj
+          cat > YTforTV.xcodeproj/project.pbxproj <
