@@ -3,7 +3,6 @@ on: workflow_dispatch
 
 env:
   APP_DISPLAY_NAME: "YT for TV"
-  SCHEME: YTforTV_Playgrounds
 
 jobs:
   build:
@@ -11,61 +10,85 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build for iOS (unsigned)
+      - name: Build for iOS
         run: |
-          xcodebuild \
-            -scheme "$SCHEME" \
-            -destination 'generic/platform=iOS' \
-            -configuration Release \
-            -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO
+          swift build \
+            -c release \
+            --destination 'generic/platform=iOS' \
+            --product YTforTV_Playgrounds
 
-      - name: Set display name and icon
+      - name: Locate and prepare app bundle
         run: |
-          APP=$(find build -name "*.app" -path "*Release-iphoneos*" | head -1)
-          PLIST="$APP/Info.plist"
-          echo "Patching: $APP"
+          # Find the built executable
+          BUILT_PRODUCT=$(find .build -name "YTforTV_Playgrounds" -type f -executable 2>/dev/null | head -1)
+          if [ -z "$BUILT_PRODUCT" ]; then
+            echo "Error: Could not find built executable"
+            ls -la .build/
+            exit 1
+          fi
+          echo "Found built product: $BUILT_PRODUCT"
 
-          # 1. Display name (what appears under the icon on the Home Screen)
-          /usr/libexec/PlistBuddy -c "Delete :CFBundleDisplayName" "$PLIST" 2>/dev/null || true
-          /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string $APP_DISPLAY_NAME" "$PLIST"
+          # Create app bundle manually
+          APP_BUNDLE="YTforTV_Playgrounds.app"
+          rm -rf "$APP_BUNDLE"
+          mkdir -p "$APP_BUNDLE"
+          cp "$BUILT_PRODUCT" "$APP_BUNDLE/"
 
-          # 2. Icon at every size iOS and iPadOS need
-          #    name, pixel size
-          SIZES="AppIcon60x60@2x:120 AppIcon60x60@3x:180 AppIcon76x76@2x~ipad:152 AppIcon83.5x83.5@2x~ipad:167 AppIcon76x76~ipad:76 AppIcon40x40@2x:80"
-          for entry in $SIZES; do
-            name=${entry%%:*}
-            px=${entry##*:}
-            sips -z "$px" "$px" assets/icon.png --out "$APP/$name.png" >/dev/null
-          done
+          # Create minimal Info.plist
+          cat > "$APP_BUNDLE/Info.plist" << 'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleExecutable</key>
+            <string>YTforTV_Playgrounds</string>
+            <key>CFBundleIdentifier</key>
+            <string>com.peder.YTforTV</string>
+            <key>CFBundleDisplayName</key>
+            <string>YT for TV</string>
+            <key>CFBundleVersion</key>
+            <string>1</string>
+            <key>CFBundleShortVersionString</key>
+            <string>1.0</string>
+            <key>NSRequiresIPhoneOSSDK</key>
+            <true/>
+            <key>UISupportedInterfaceOrientations</key>
+            <array>
+              <string>UIInterfaceOrientationPortrait</string>
+              <string>UIInterfaceOrientationLandscapeLeft</string>
+              <string>UIInterfaceOrientationLandscapeRight</string>
+            </array>
+            <key>UISupportedInterfaceOrientations~ipad</key>
+            <array>
+              <string>UIInterfaceOrientationPortrait</string>
+              <string>UIInterfaceOrientationPortraitUpsideDown</string>
+              <string>UIInterfaceOrientationLandscapeLeft</string>
+              <string>UIInterfaceOrientationLandscapeRight</string>
+            </array>
+          </dict>
+          </plist>
+          PLIST
 
-          # 3. Tell the Info.plist about the icon files
-          /usr/libexec/PlistBuddy -c "Delete :CFBundleIcons" "$PLIST" 2>/dev/null || true
-          /usr/libexec/PlistBuddy -c "Add :CFBundleIcons dict" "$PLIST"
-          /usr/libexec/PlistBuddy -c "Add :CFBundleIcons:CFBundlePrimaryIcon dict" "$PLIST"
-          /usr/libexec/PlistBuddy -c "Add :CFBundleIcons:CFBundlePrimaryIcon:CFBundleIconName string AppIcon" "$PLIST"
-          /usr/libexec/PlistBuddy -c "Add :CFBundleIcons:CFBundlePrimaryIcon:CFBundleIconFiles array" "$PLIST"
-          i=0
-          for name in AppIcon60x60 AppIcon60x60@2x AppIcon60x60@3x AppIcon76x76 AppIcon76x76@2x~ipad; do
-            /usr/libexec/PlistBuddy -c "Add :CFBundleIcons:CFBundlePrimaryIcon:CFBundleIconFiles:$i string ${name%%~ipad}" "$PLIST" 2>/dev/null || true
-            i=$((i+1))
-          done
-
-          # 4. Copy the top-level icon names for older lookups
-          /usr/libexec/PlistBuddy -c "Delete :CFBundleIconFiles" "$PLIST" 2>/dev/null || true
-          /usr/libexec/PlistBuddy -c "Add :CFBundleIconFiles array" "$PLIST"
-          /usr/libexec/PlistBuddy -c "Add :CFBundleIconFiles:0 string AppIcon60x60@2x" "$PLIST"
-          /usr/libexec/PlistBuddy -c "Add :CFBundleIconFiles:1 string AppIcon60x60@3x" "$PLIST"
-
-          echo "--- Resulting Info.plist ---"
-          plutil -p "$PLIST" | grep -E "DisplayName|IconFiles|IconName" || true
+      - name: Add icon to app bundle
+        run: |
+          APP_BUNDLE="YTforTV_Playgrounds.app"
+          if [ -f "assets/icon.png" ]; then
+            # Create AppIcon sizes
+            for px in 60 120 180; do
+              sips -z "$px" "$px" assets/icon.png --out "$APP_BUNDLE/AppIcon${px}.png" 2>/dev/null || true
+            done
+            echo "Icons added to bundle"
+          else
+            echo "Warning: assets/icon.png not found, skipping icons"
+          fi
 
       - name: Package IPA
         run: |
-          APP=$(find build -name "*.app" -path "*Release-iphoneos*" | head -1)
-          mkdir Payload
-          cp -r "$APP" Payload/
+          APP_BUNDLE="YTforTV_Playgrounds.app"
+          mkdir -p Payload
+          cp -r "$APP_BUNDLE" Payload/
           zip -r YTforTV.ipa Payload
+          ls -lh YTforTV.ipa
 
       - uses: actions/upload-artifact@v4
         with:
