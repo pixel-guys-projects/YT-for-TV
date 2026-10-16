@@ -1,81 +1,73 @@
-name: Build IPA from SwiftPM
-on: [workflow_dispatch]
+name: Build IPA with name and icon
+on: workflow_dispatch
+
+env:
+  APP_DISPLAY_NAME: "YT for TV"
+  SCHEME: YTforTV_Playgrounds
 
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-26   # needs Xcode 26 for iPadOS 26 APIs; check GitHub's runner list
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Select Xcode Version
-        run: sudo xcode-select -s /Applications/Xcode_15.4.app
-
-      - name: Compile Native iPadOS Binary
+      - name: Build for iOS (unsigned)
         run: |
-          swift build -c release \
-            --triple arm64-apple-ios17.0 \
-            --sdk $(xcrun --sdk iphoneos --show-sdk-path)
+          xcodebuild \
+            -scheme "$SCHEME" \
+            -destination 'generic/platform=iOS' \
+            -configuration Release \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO
 
-      - name: Assemble Application Bundle and Info.plist
+      - name: Set display name and icon
         run: |
-          # Create the official iOS/iPadOS directory payload structure
-          mkdir -p Payload/YouTubeTVApp.app
-          
-          # Loosen search to cleanly locate the built binary anywhere inside the build tree
-          TARGET_BIN=$(find .build -type f -name "yt-tv-ipad" -o -name "YouTubeTVApp" | head -n 1)
-          
-          # If specific name checks fall short, pull the first pure executable out of the release tree
-          if [ -z "$TARGET_BIN" ]; then
-            TARGET_BIN=$(find .build/ -type f ! -name "*.plist" ! -name "*.json" ! -name "*.db" ! -name "*.txt" ! -name "*.nib" ! -name "*.plist" | head -n 1)
-          fi
-          
-          cp "$TARGET_BIN" Payload/YouTubeTVApp.app/YouTubeTVApp
-          chmod +x Payload/YouTubeTVApp.app/YouTubeTVApp
+          APP=$(find build -name "*.app" -path "*Release-iphoneos*" | head -1)
+          PLIST="$APP/Info.plist"
+          echo "Patching: $APP"
 
-          # Write clean layout plist configurations
-          cat <<EOF > Payload/YouTubeTVApp.app/Info.plist
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>CFBundleDevelopmentRegion</key>
-              <string>en</string>
-              <key>CFBundleExecutable</key>
-              <string>YouTubeTVApp</string>
-              <key>CFBundleIdentifier</key>
-              <string>com.pixelguys.yttvipad</string>
-              <key>CFBundleInfoDictionaryVersion</key>
-              <string>6.0</string>
-              <key>CFBundleName</key>
-              <string>YouTube TV</string>
-              <key>CFBundlePackageType</key>
-              <string>APPL</string>
-              <key>CFBundleShortVersionString</key>
-              <string>1.0</string>
-              <key>CFBundleVersion</key>
-              <string>1</string>
-              <key>LSRequiresIPhoneOS</key>
-              <true/>
-              <key>UIDeviceFamily</key>
-              <array>
-                  <integer>2</integer>
-              </array>
-              <key>UISupportedInterfaceOrientations</key>
-              <array>
-                  <string>UIInterfaceOrientationLandscapeLeft</string>
-                  <string>UIInterfaceOrientationLandscapeRight</string>
-              </array>
-          </dict>
-          </plist>
-          EOF
+          # 1. Display name (what appears under the icon on the Home Screen)
+          /usr/libexec/PlistBuddy -c "Delete :CFBundleDisplayName" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string $APP_DISPLAY_NAME" "$PLIST"
 
-      - name: Package App Bundle into IPA
+          # 2. Icon at every size iOS and iPadOS need
+          #    name, pixel size
+          SIZES="AppIcon60x60@2x:120 AppIcon60x60@3x:180 AppIcon76x76@2x~ipad:152 AppIcon83.5x83.5@2x~ipad:167 AppIcon76x76~ipad:76 AppIcon40x40@2x:80"
+          for entry in $SIZES; do
+            name=${entry%%:*}
+            px=${entry##*:}
+            sips -z "$px" "$px" assets/icon.png --out "$APP/$name.png" >/dev/null
+          done
+
+          # 3. Tell the Info.plist about the icon files
+          /usr/libexec/PlistBuddy -c "Delete :CFBundleIcons" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :CFBundleIcons dict" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleIcons:CFBundlePrimaryIcon dict" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleIcons:CFBundlePrimaryIcon:CFBundleIconName string AppIcon" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleIcons:CFBundlePrimaryIcon:CFBundleIconFiles array" "$PLIST"
+          i=0
+          for name in AppIcon60x60 AppIcon60x60@2x AppIcon60x60@3x AppIcon76x76 AppIcon76x76@2x~ipad; do
+            /usr/libexec/PlistBuddy -c "Add :CFBundleIcons:CFBundlePrimaryIcon:CFBundleIconFiles:$i string ${name%%~ipad}" "$PLIST" 2>/dev/null || true
+            i=$((i+1))
+          done
+
+          # 4. Copy the top-level icon names for older lookups
+          /usr/libexec/PlistBuddy -c "Delete :CFBundleIconFiles" "$PLIST" 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :CFBundleIconFiles array" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleIconFiles:0 string AppIcon60x60@2x" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Add :CFBundleIconFiles:1 string AppIcon60x60@3x" "$PLIST"
+
+          echo "--- Resulting Info.plist ---"
+          plutil -p "$PLIST" | grep -E "DisplayName|IconFiles|IconName" || true
+
+      - name: Package IPA
         run: |
-          zip -r YouTubeTVApp.ipa Payload
+          APP=$(find build -name "*.app" -path "*Release-iphoneos*" | head -1)
+          mkdir Payload
+          cp -r "$APP" Payload/
+          zip -r YTforTV.ipa Payload
 
-      - name: Upload Finished IPA Artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: YouTubeTVApp-Package
-          path: YouTubeTVApp.ipa
+          name: YTforTV
+          path: YTforTV.ipa
