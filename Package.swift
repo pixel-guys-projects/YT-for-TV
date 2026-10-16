@@ -4,7 +4,7 @@ import PackageDescription
 let package = Package(
     name: "YTforTV_Playgrounds",
     platforms: [
-        .iOS(.v26)
+        .iOS(.v17)  // Changed from .v26
     ],
     targets: [
         .executableTarget(
