@@ -1,4 +1,4 @@
-name: Build IPA with name and icon
+name: Build IPA
 on: workflow_dispatch
 
 jobs:
@@ -7,59 +7,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Create minimal Xcode project structure
-        run: |
-          # Create a minimal project.pbxproj that xcodebuild can use
-          mkdir -p YTforTV.xcodeproj
-          cat > YTforTV.xcodeproj/project.pbxproj << 'PBXPROJ'
-          // Minimal pbxproj; xcodebuild will auto-discover the Swift file
-          {
-            archiveVersion = 1;
-            objectVersion = 56;
-            rootObject = 00000000000000000000000001;
-            objects = {};
-            classes = {};
-          }
-          PBXPROJ
-
-      - name: Build IPA
+      - name: Build for iOS
         run: |
           xcodebuild \
-            -project YTforTV.xcodeproj \
-            -scheme YTforTV_Playgrounds \
+            -scheme "YT for TV" \
             -configuration Release \
             -destination generic/platform=iOS \
             -derivedDataPath .build \
             CODE_SIGNING_ALLOWED=NO \
             build
 
-      - name: Find and package app
+      - name: Create IPA
         run: |
-          # Search for the built .app
-          APP=$(find .build -name "*.app" -type d | head -1)
+          APP=$(find .build -name "YT for TV.app" -o -name "*.app" | head -1)
           if [ -z "$APP" ]; then
-            echo "Error: No .app found"
-            find .build -type d -name "*.app" || echo "No .app directories"
+            echo "App not found, listing .build:"
+            find .build -type d -name "*.app"
             exit 1
           fi
-          echo "Found app: $APP"
-
-          # Update Info.plist with display name
-          /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string YT\ for\ TV" "$APP/Info.plist" 2>/dev/null || \
-          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName YT\ for\ TV" "$APP/Info.plist"
-
-          # Add icon if present
-          if [ -f "assets/icon.png" ]; then
-            cp assets/icon.png "$APP/AppIcon.png"
-          fi
-
-          # Create IPA
           mkdir -p Payload
           cp -r "$APP" Payload/
-          zip -r YTforTV.ipa Payload
-          ls -lh YTforTV.ipa
+          zip -r "YT for TV.ipa" Payload
 
       - uses: actions/upload-artifact@v4
         with:
-          name: YTforTV
-          path: YTforTV.ipa
+          name: YT for TV IPA
+          path: "YT for TV.ipa"
