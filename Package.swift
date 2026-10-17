@@ -34,14 +34,11 @@ let package = Package(
         )
     ],
     targets: [
-        .executableTarget(
-            name: "AppModule",
-            path: ".",
-            resources: [
-                .process("Resources")
-            ],
-            swiftSettings: [
-                .enableUpcomingFeature("BareSlashRegexLiterals")
+    .executableTarget(
+        name: "AppModule",
+        path: ".",
+        swiftSettings: [
+            .enableUpcomingFeature("BareSlashRegexLiterals")
             ]
         )
     ]
