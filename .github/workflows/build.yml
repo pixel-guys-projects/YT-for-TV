@@ -14,6 +14,7 @@ jobs:
             -configuration Release \
             -destination generic/platform=iOS \
             -derivedDataPath .build \
+            -arch arm64 \
             CODE_SIGNING_ALLOWED=NO \
             build
 
