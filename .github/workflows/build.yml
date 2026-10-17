@@ -19,7 +19,7 @@ jobs:
 
       - name: Create IPA
         run: |
-          APP=$(find .build -name "YT for TV.app" -o -name "*.app" | head -1)
+          APP=$(find .build -path "*/Release-iphoneos/*.app" | head -1)
           if [ -z "$APP" ]; then
             echo "App not found, listing .build:"
             find .build -type d -name "*.app"
