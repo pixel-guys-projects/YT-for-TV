@@ -10,7 +10,7 @@ import AppleProductTypes
 let package = Package(
     name: "YT for TV",
     platforms: [
-        .iOS("18.0")
+        .iOS("26.0")
     ],
     products: [
         .iOSApplication(
