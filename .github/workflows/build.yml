@@ -1,4 +1,4 @@
-name: Build IPA
+name: Build YT to TV IPA
 on: workflow_dispatch
 
 jobs:
@@ -7,47 +7,70 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Build for iOS
+      - name: Build with Swift Package Manager
         run: |
-          xcodebuild \
-            -scheme "YT for TV" \
-            -configuration Release \
-            -destination generic/platform=iOS \
-            -derivedDataPath .build \
-            CODE_SIGNING_ALLOWED=NO \
-            build
+          swift build -c release --product "YT for TV"
 
-      - name: Create IPA
+      - name: Create IPA from executable
         run: |
-          echo "Searching for .app in .build:"
-          find .build -name "*.app" -type d
-          
-          # Try the exact path
-          APP=".build/Build/Products/Release-iphoneos/YT for TV.app"
-          if [ -d "$APP" ]; then
-            echo "Found at exact path: $APP"
-          else
-            echo "Not at exact path, searching..."
-            APP=$(find .build -name "*.app" -type d | head -1)
-            if [ -z "$APP" ]; then
-              echo "ERROR: No .app found anywhere in .build"
-              find .build -type f -name "Info.plist" | head -5
-              exit 1
-            fi
-            echo "Found at: $APP"
+          # Find the built executable
+          EXECUTABLE=".build/release/YT_for_TV"
+          if [ ! -f "$EXECUTABLE" ]; then
+            echo "ERROR: Executable not found at $EXECUTABLE"
+            find .build/release -type f -executable
+            exit 1
           fi
+          echo "Found executable: $EXECUTABLE"
           
-          mkdir -p Payload
-          cp -r "$APP" Payload/
+          # Create app bundle structure
+          mkdir -p Payload/"YT for TV.app"
+          cp "$EXECUTABLE" Payload/"YT for TV.app"/YT_for_TV
+          
+          # Create Info.plist
+          cat > Payload/"YT for TV.app"/Info.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleExecutable</key>
+            <string>YT_for_TV</string>
+            <key>CFBundleIdentifier</key>
+            <string>com.pixelguys.ytfortv</string>
+            <key>CFBundleDisplayName</key>
+            <string>YT for TV</string>
+            <key>CFBundleVersion</key>
+            <string>1</string>
+            <key>CFBundleShortVersionString</key>
+            <string>1.0</string>
+            <key>CFBundlePackageType</key>
+            <string>APPL</string>
+            <key>UIDeviceFamily</key>
+            <array>
+              <integer>1</integer>
+              <integer>2</integer>
+            </array>
+            <key>UISupportedInterfaceOrientations</key>
+            <array>
+              <string>UIInterfaceOrientationPortrait</string>
+              <string>UIInterfaceOrientationLandscapeRight</string>
+              <string>UIInterfaceOrientationLandscapeLeft</string>
+            </array>
+            <key>UISupportedInterfaceOrientations~ipad</key>
+            <array>
+              <string>UIInterfaceOrientationPortrait</string>
+              <string>UIInterfaceOrientationPortraitUpsideDown</string>
+              <string>UIInterfaceOrientationLandscapeRight</string>
+              <string>UIInterfaceOrientationLandscapeLeft</string>
+            </array>
+          </dict>
+          </plist>
+          EOF
+          
+          # Create IPA
           zip -r "YT for TV.ipa" Payload
           ls -lh "YT for TV.ipa"
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: YT for TV IPA
-          path: "YT for TV.ipa"
-
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v3
         with:
           name: YT for TV IPA
           path: "YT for TV.ipa"
