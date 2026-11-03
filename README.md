@@ -3,7 +3,7 @@
 ![iPadOS](https://img.shields.io/badge/iPadOS-26%2B-blue?logo=apple)
 ![Swift](https://img.shields.io/badge/Swift-5.9-orange?logo=swift)
 ![Version](https://img.shields.io/badge/version-2.0-red)
-![License](https://img.shields.io/badge/license-MIT-green)
+![License](https://img.shields.io/badge/license-Apache--2.0-blue)
 
 Watch YouTube in its **Leanback TV interface** on your iPad. It's the same big-screen interface normally reserved for smart TVs, with an on-screen remote, swipe navigation, and a Liquid Glass UI built for iPadOS 26.
 
@@ -52,7 +52,7 @@ The **Export IPA** button uses a pure-Swift ZIP implementation to package `Bundl
 
 ## License
 
-MIT License. Free to use, modify, and distribute.
+Licensed under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0). See the `LICENSE` file for details.
 
 ---
 
