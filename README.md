@@ -24,7 +24,14 @@ Watch YouTube in its **Leanback TV interface** on your iPad. It's the same big-s
 
 ## Screenshots
 
-> Add screenshots here: drag images into this section once the app is running on your iPad.
+<p align="center">
+  <img src="https://pixel-guys-projects.github.io/YT-for-TV/assets/S1.png" width="48%" alt="Screenshot 1">
+  <img src="https://pixel-guys-projects.github.io/YT-for-TV/assets/S2.png" width="48%" alt="Screenshot 2">
+</p>
+<p align="center">
+  <img src="https://pixel-guys-projects.github.io/YT-for-TV/assets/S3.png" width="48%" alt="Screenshot 3">
+  <img src="https://pixel-guys-projects.github.io/YT-for-TV/assets/S4.png" width="48%" alt="Screenshot 4">
+</p>
 
 ## Requirements
 
