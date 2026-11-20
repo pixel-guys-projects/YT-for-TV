@@ -1,6 +1,6 @@
 {
   "version": "2.1",
   "build": "imp15c",
-  "ipaURL": "https://github.com/pixel-guys-projects/YT-for-TV/releases/latest/download/YT_for_TV.ipa",
+  "ipaURL": "https://github.com/pixel-guys-projects/YT-for-TV/releases/latest/download/Release-2.0.ipa",
   "notes": "Foldable iPhone support, update checker, feedback button."
 }
